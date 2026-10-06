@@ -1,0 +1,94 @@
+# ==========================================
+# Python / Pipenv / Environment
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Pipenv-specific files
+.venv/
+
+
+# Environment variables & local configuration
+.env
+.secrets
+.local.env
+.env.txt
+
+# ==========================================
+# Django Specific
+# ==========================================
+# Local development media & static files (if using a local filesystem storage backend)
+media/
+staticfiles/
+static_root/
+
+# Persistent SQLite development database (if not using standard multi-container db infrastructure)
+*.sqlite3
+db.sqlite3-journal
+
+# ==========================================
+# Celery & Asynchronous Systems
+# ==========================================
+# Celery beat schedule files (if running local persistent loop tasks)
+celerybeat-schedule
+celerybeat-schedule.db
+
+# ==========================================
+# Docker & System Environment
+# ==========================================
+# Ignore local runtime cache, but keep Dockerfile / docker-compose configurations
+.docker/
+.docker-compose.local.env
+
+# ==========================================
+# Testing & Code Coverage (Pytest / Ruff)
+# ==========================================
+.pytest_cache/
+.htmlcov/
+htmlcov/
+.cov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+nosetests.xml
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Ruff / Linting cache tools
+.ruff_cache/
+
+# ==========================================
+# IDEs & System Metadata
+# ==========================================
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+.DS_Store
+Thumbs.db
+
