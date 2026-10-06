@@ -1,0 +1,40 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+djangorestframework = "*"
+django-cors-headers = "*"
+pillow = "*"
+whitenoise = "*"
+dj-database-url = "*"
+psycopg2-binary = "*"
+djoser = "*"
+drf-nested-routers = "*"
+gunicorn = "*"
+drf-spectacular = "*"
+django-storages = "*"
+boto3 = "*"
+djangorestframework-simplejwt = "*"
+django-filter = "*"
+channels = "*"
+channels-redis = "*"
+pytest-asyncio = "*"
+daphne = "*"
+django-redis = "*"
+celery = {extras = ["redis"], version = "*"}
+
+[dev-packages]
+pytest-django = "*"
+pytest-cov = "*"
+dj-inmemorystorage = "*"
+pytest-xdist = "*"
+pytest = "*"
+factory-boy = "*"
+faker = "*"
+ruff = "*"
+
+[requires]
+python_version = "3.10"

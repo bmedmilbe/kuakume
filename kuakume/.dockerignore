@@ -1,0 +1,43 @@
+# Version control
+.git
+.gitignore
+
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Local virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables and secrets
+.env
+*.env
+.env.local
+
+# IDEs and operating system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker configuration files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Testing, coverage, and documentation
+.pytest_cache/
+.coverage
+htmlcov/
+docs/
+README.md
+
+
