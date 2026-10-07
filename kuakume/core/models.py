@@ -29,7 +29,7 @@ class User(AbstractUser):
         return f"{self.phone} {self.first_name} {self.last_name}"
 
     def clean(self):
-        """Validate the mobile number format."""
+        """Validate the mobile number format, and email existence"""
         if self.phone:
             cleaned = re.sub(r"\s+", "", self.phone)
             if not cleaned.startswith("+"):
@@ -44,6 +44,13 @@ class User(AbstractUser):
                         "phone": "Invalid mobile number format. Use format: +4475836648484"
                     }
                 )
+            
+        if self.email:
+            if User.objects.filter(email=self.email).exists():
+                raise ValidationError({"email": "This email is already in use."})
+        if self.username:
+            if User.objects.filter(username=self.username).exists():
+                raise ValidationError({"username": "This username is already in use."})
 
     def save(self, *args, **kwargs):
         # self.full_clean() automatically calls self.clean()
