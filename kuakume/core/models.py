@@ -17,7 +17,7 @@ class User(AbstractUser):
         verbose_name="Phone Number",
         help_text="Format: +4475836648484",
     )
-    email = models.EmailField(max_length=255, null=True, blank=True)
+    email = models.EmailField(max_length=255, null=True, blank=True,unique=True,)
 
     REQUIRED_FIELDS = ["phone", "email", "first_name", "last_name"]
 
@@ -44,13 +44,6 @@ class User(AbstractUser):
                         "phone": "Invalid mobile number format. Use format: +4475836648484"
                     }
                 )
-            
-        if self.email:
-            if User.objects.filter(email=self.email).exists():
-                raise ValidationError({"email": "This email is already in use."})
-        if self.username:
-            if User.objects.filter(username=self.username).exists():
-                raise ValidationError({"username": "This username is already in use."})
 
     def save(self, *args, **kwargs):
         # self.full_clean() automatically calls self.clean()
