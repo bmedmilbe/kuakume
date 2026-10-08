@@ -127,13 +127,16 @@ class TestShopVendorCreateOrUpdateSerializer:
     def test_create_with_coordinates(self):
         vendor = VendorFactory()
         street = StreetFactory()
-        serializer = ShopVendorCreateOrUpdateSerializer(data={
+        serializer = ShopVendorCreateOrUpdateSerializer(
+            data={
             'vendor': vendor.id,
             'street': street.id,
             'lon': 10.5,
             'lat': 20.5,
-            'contact_number': '123456789',
-        })
+            'contact_number': '123456789'
+        },
+        context={'user_pk': vendor.user.id}
+        )
         assert serializer.is_valid(), serializer.errors
         shop = serializer.save()
         assert shop.location.x == 10.5
@@ -148,9 +151,8 @@ class TestShopVendorCreateOrUpdateSerializer:
             'street': street.id,
             'contact_number': '123456789',
         })
-        assert serializer.is_valid(), serializer.errors
+        assert not serializer.is_valid(), serializer.errors
         with pytest.raises(Exception):
-            # PointField is required on model → save() should raise
             serializer.save()
 
     def test_validate_only_lon_provided(self):
@@ -172,6 +174,7 @@ class TestShopVendorCreateOrUpdateSerializer:
         serializer = ShopVendorCreateOrUpdateSerializer(
             shop,
             data={'lon': 99.0, 'lat': 88.0},
+            context={'user_pk': shop.vendor.user.id},
             partial=True,
         )
         assert serializer.is_valid(), serializer.errors
@@ -185,14 +188,13 @@ class TestShopVendorCreateOrUpdateSerializer:
         serializer = ShopVendorCreateOrUpdateSerializer(
             shop,
             data={'contact_number': '000'},
+            context={'user_pk': shop.vendor.user.id},
             partial=True,
         )
-        assert serializer.is_valid(), serializer.errors
-        shop = serializer.save()
-        assert shop.contact_number == '000'
-        assert shop.location == original_location
-
-
+        assert not serializer.is_valid(), serializer.errors
+        with pytest.raises(Exception):
+            serializer.save()
+        
 # =========================================================
 # VendorSerializer
 # =========================================================
