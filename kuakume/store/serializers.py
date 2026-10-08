@@ -76,6 +76,7 @@ class ShopVendorSerializer(serializers.ModelSerializer):
             }
         return None
 
+
 class ShopVendorCreateOrUpdateSerializer(serializers.ModelSerializer):
     """
     POST/PUT/PATCH for ShopVendor.
@@ -88,7 +89,6 @@ class ShopVendorCreateOrUpdateSerializer(serializers.ModelSerializer):
         model = ShopVendor
         fields = [
             'id',
-            'vendor',
             'street',
             'lon',
             'lat',
@@ -98,11 +98,10 @@ class ShopVendorCreateOrUpdateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'location']
 
     def validate(self, attrs):
-        """Ensure both coordinates are provided together if location is updated."""
         lon = attrs.get('lon')
         lat = attrs.get('lat')
 
-        if (lon is not None and lat is None) or (lat is not None and lon is None):
+        if (lon is None or lat is None):
             raise serializers.ValidationError(
                 {"location": "Both 'lon' and 'lat' are required to update the location."}
             )
@@ -114,7 +113,17 @@ class ShopVendorCreateOrUpdateSerializer(serializers.ModelSerializer):
         
         if lon is not None and lat is not None:
             validated_data['location'] = Point(lon, lat, srid=4326)
-            
+
+        # Look up the Vendor instance linked to this user context
+        user_id = self.context['user_pk']
+        try:
+            vendor = Vendor.objects.get(user_id=user_id)
+            validated_data['vendor'] = vendor
+        except Vendor.DoesNotExist:
+            raise serializers.ValidationError(
+                {"detail": "Authenticated user does not have an active vendor profile."}
+            )
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
@@ -124,7 +133,10 @@ class ShopVendorCreateOrUpdateSerializer(serializers.ModelSerializer):
         if lon is not None and lat is not None:
             validated_data['location'] = Point(lon, lat, srid=4326)
 
+        # Do NOT inject user_id/vendor on update if it shouldn't change ownership
         return super().update(instance, validated_data)
+
+
 # ---------------------------------------------------------
 # Vendor
 # ---------------------------------------------------------
