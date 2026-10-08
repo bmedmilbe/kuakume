@@ -92,3 +92,6 @@ pip-delete-this-directory.txt
 .DS_Store
 Thumbs.db
 
+media/
+staticfiles/
+
