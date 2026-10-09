@@ -61,7 +61,7 @@ class DeliverData(models.Model):
         on_delete=models.CASCADE, 
         related_name='delivery_data_records'
     )
-    deliver = models.ForeignKey(
+    deliver = models.OneToOneField(
         Deliver, 
         on_delete=models.CASCADE, 
         related_name='data_records'

@@ -178,7 +178,7 @@ class TestDeliverDataModel:
     def test_deliver_related_name(self):
         deliver = DeliverFactory()
         data = DeliverDataFactory(deliver=deliver)
-        assert data in deliver.data_records.all()
+        assert data == deliver.data_records
 
     def test_deliver_cascade_delete(self):
         data = DeliverDataFactory()
