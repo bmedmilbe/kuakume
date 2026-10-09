@@ -49,7 +49,9 @@ class TestVendorViewSet:
 
     def test_get_vendor_returns_own_profile(self):
         user = StoreUserFactory()
-        vendor = VendorFactory(user=user, account_number_pt="PT1")
+        vendor = VendorFactory(user=user)
+        vendor.account_number_pt="PT1"
+        vendor.save()
 
         client = _auth_client(user)
         url = reverse("vendor-me")

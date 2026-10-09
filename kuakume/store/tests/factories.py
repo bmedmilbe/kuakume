@@ -26,6 +26,7 @@ class StoreUserFactory(UserFactory):
 class VendorFactory(DjangoModelFactory):
     class Meta:
         model = Vendor
+        django_get_or_create = ['user']
 
     user = factory.SubFactory(StoreUserFactory)
     account_number_pt = factory.Faker('bban')

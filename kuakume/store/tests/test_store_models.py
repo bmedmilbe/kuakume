@@ -44,7 +44,7 @@ class TestVendorModel:
     def test_vendor_one_to_one_with_user(self):
         vendor = VendorFactory()
         with pytest.raises(IntegrityError):
-            VendorFactory(user=vendor.user)
+            Vendor.objects.create(user=vendor.user)
 
     def test_vendor_optional_fields(self):
         vendor = VendorFactory(
