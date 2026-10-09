@@ -43,7 +43,8 @@ INSTALLED_APPS = [
     'core',  
     'kuakume',  
     'store',  
-    'shopping'  
+    'shipping',  
+    'shopping',  
 ]
 
 MIDDLEWARE = [
