@@ -131,12 +131,14 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
    'AUTH_HEADER_TYPES': ('JWT',),
+   'TOKEN_OBTAIN_SERIALIZER': 'core.serializers.TokenCreateSerializer',
 }
 
 DJOSER = {
     'SERIALIZERS': {
         'user_create': 'core.serializers.UserCreateSerializer',
-        # 'user': 'core.serializers.UserSerializer',
-        # 'current_user': 'core.serializers.UserSerializer',
+        'user': 'core.serializers.UserSerializer',
+        'current_user': 'core.serializers.UserSerializer',
+        
     },
 }
