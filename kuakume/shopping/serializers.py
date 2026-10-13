@@ -205,15 +205,13 @@ class OrderItemCreateOrUpdateSerializer(serializers.ModelSerializer):
                     {"product": "This product belongs to a different shop than the order."}
                 )
 
-        # unique_together(order, product).
-        if product is not None:
-            qs = OrderItem.objects.filter(order=order, product=product)
-            if self.instance is not None:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise serializers.ValidationError(
-                    {"product": "This product is already part of the order."}
-                )
+        
+
+
+
+
+            
+            
 
         return attrs
 
@@ -225,6 +223,23 @@ class OrderItemCreateOrUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("The specified order does not exist.")
 
         product = validated_data.get("product")
+
+
+
+        # unique_together(order, product).
+        if product is not None:
+            qs = OrderItem.objects.filter(order=order, product=product)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                validated_data["quantity"] = qs.first().quantity + (
+                1 if validated_data.get("quantity") == None else validated_data["quantity"])
+            order_item = qs.first()      
+            if order_item:
+                order_item.quantity = validated_data["quantity"]
+                order_item.save()
+                return order_item                      
+
 
         # Lazy shop assignment — mirrors OrderItem.clean().
         if order.shop_id is None and product is not None:
@@ -470,15 +485,7 @@ class CartItemCreateOrUpdateSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        # unique_together(cart, product).
-        if product is not None:
-            qs = CartItem.objects.filter(cart=cart, product=product)
-            if self.instance is not None:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                raise serializers.ValidationError(
-                    {"product": "This product is already in the cart."}
-                )
+        
 
         return attrs
 
@@ -491,6 +498,23 @@ class CartItemCreateOrUpdateSerializer(serializers.ModelSerializer):
 
         product = validated_data.get("product")
 
+
+        # unique_together(cart, product).
+        if product is not None:
+            qs = CartItem.objects.filter(cart=cart, product=product)
+            if self.instance is not None:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                validated_data["quantity"] = qs.first().quantity + (
+                    1 if validated_data.get("quantity") == None else validated_data["quantity"])
+            validated_data["cart"] = cart
+            cart_item = qs.first()
+
+            if cart_item:
+                cart_item.quantity = validated_data["quantity"]
+                cart_item.save()
+                return cart_item
+
         # Lazy shop assignment — mirrors CartItem.clean().
         if cart.shop_id is None and product is not None:
             cart.shop = product.shop
@@ -501,6 +525,9 @@ class CartItemCreateOrUpdateSerializer(serializers.ModelSerializer):
             validated_data["price_at_purchase"] = product.price
 
         validated_data["cart"] = cart
+
+
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
