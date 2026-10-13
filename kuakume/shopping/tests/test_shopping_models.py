@@ -2,6 +2,7 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from django.contrib.gis.geos import Point
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db.utils import IntegrityError
 from store.tests.factories import (
@@ -21,7 +22,12 @@ from .factories import (
 )
 
 
-def _create_order(payment_status=Order.PaymentStatus.PENDING, delivery_status=Order.DeliveryStatus.PENDING):
+def _create_order(
+        payment_status=Order.PaymentStatus.PENDING, 
+        delivery_status=Order.DeliveryStatus.PENDING, 
+        product_name="Apple", price=Decimal("5.00"),
+        location=Point(11.22, 33.44, srid=4326)
+        ):
     user_client = StoreUserFactory(phone="+123456789")
     client=user_client.clients
     
@@ -32,11 +38,72 @@ def _create_order(payment_status=Order.PaymentStatus.PENDING, delivery_status=Or
     deliver=user_deliver.delivery_profile
     
     shop = ShopVendorFactory(vendor=vendor)
-    product = ProductFactory(shop=shop)
+    product = ProductFactory(shop=shop, name = product_name, price=price)
     
-    order = OrderFactory(client=client, shop=shop, deliver=deliver, payment_status=payment_status, delivery_status=delivery_status)
+    order = OrderFactory(client=client, 
+                         shop=shop, 
+                         deliver=deliver, 
+                         payment_status=payment_status, 
+                         delivery_status=delivery_status,
+                         location=location)
             
     return order, product
+
+
+def _create_order_with_client(
+        client):
+    
+    
+    user_vendor = StoreUserFactory(phone="+223456789")
+    vendor=user_vendor.vendor_user
+    
+    user_deliver = StoreUserFactory(phone="+323456789")
+    deliver=user_deliver.delivery_profile
+    
+    shop = ShopVendorFactory(vendor=vendor)
+    product = ProductFactory(shop=shop)
+    
+    order = OrderFactory(client=client, 
+                         shop=shop, 
+                         deliver=deliver, 
+                         
+                         )
+            
+    return order, product
+def _create_order_with_shop(
+         shop):
+    
+    
+    
+    user_client = StoreUserFactory(phone="+123456789")
+    client=user_client.clients
+    
+    
+    user_deliver = StoreUserFactory(phone="+323456789")
+    deliver=user_deliver.delivery_profile
+    
+    
+    product = ProductFactory(shop=shop)
+    
+    order = OrderFactory(client=client, 
+         shop=shop, 
+         deliver=deliver)
+    
+            
+    return order, product
+
+def _create_product(name="Apple"):
+
+    
+    user_vendor = StoreUserFactory(phone="+368726879")
+    vendor=user_vendor.vendor_user
+    
+    
+    shop = ShopVendorFactory(vendor=vendor)
+    product = ProductFactory(shop=shop, name=name)
+    
+    return product
+
 def _create_order_without_shop():
     user_client = StoreUserFactory(phone="+123456789")
     client=user_client.clients
