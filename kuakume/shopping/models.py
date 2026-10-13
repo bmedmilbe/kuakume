@@ -178,7 +178,7 @@ class Cart(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(client__isnull=False, guest_token__isnull=True)
                     | models.Q(client__isnull=True, guest_token__isnull=False)
                 ),
