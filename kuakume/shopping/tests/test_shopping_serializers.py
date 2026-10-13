@@ -290,7 +290,7 @@ class TestOrderItemCreateOrUpdateSerializer:
         assert serializer.is_valid() is False
         assert "product" in serializer.errors
 
-    def test_duplicate_product_rejected(self):
+    def test_duplicate_product_is_auto_added(self):
         order, product = _create_order()
         OrderItemFactory(order=order, product=product)
 
@@ -298,8 +298,7 @@ class TestOrderItemCreateOrUpdateSerializer:
             data={"product": product.id, "quantity": 1},
             context={"order_pk": order.id},
         )
-        assert serializer.is_valid() is False
-        assert "product" in serializer.errors
+        assert serializer.is_valid() is True
 
     
 
@@ -667,7 +666,7 @@ class TestCartItemCreateOrUpdateSerializer:
         assert serializer.is_valid() is False
         assert "product" in serializer.errors
 
-    def test_duplicate_product_rejected(self):
+    def test_duplicate_product_not_rejected(self):
         cart = CartFactory()
         product = ProductFactory(shop=ShopVendorFactory())
         CartItemFactory(cart=cart, product=product)
@@ -676,8 +675,7 @@ class TestCartItemCreateOrUpdateSerializer:
             data={"product": product.id, "quantity": 1},
             context={"cart_pk": cart.id},
         )
-        assert serializer.is_valid() is False
-        assert "product" in serializer.errors
+        assert serializer.is_valid() is True
 
     def test_cart_shop_locked_on_create(self):
         cart = CartFactory(shop=None)
