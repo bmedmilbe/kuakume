@@ -8,7 +8,7 @@ class Vendor(models.Model):
     account_number_stp = models.CharField(max_length=50, blank=True, null=True)
     account_name_pt = models.CharField(max_length=100, blank=True, null=True)
     account_name_stp = models.CharField(max_length=100, blank=True, null=True)
-
+    is_active = models.BooleanField(default=False)
     def __str__(self):
         return f"Vendor: {self.user.phone}"
     

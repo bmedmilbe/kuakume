@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from rest_framework import serializers
+from shopping.models import Order
 
 from .models import (
     Category,
@@ -401,3 +402,40 @@ class ProductContentCreateOrUpdateSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+
+
+
+class ShopOrderReadSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for ShopVendors to visualise comprehensive order details.
+    """
+    client_name = serializers.CharField(source='client.user.username', read_only=True)
+    total_amount = serializers.DecimalField(source='total', max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'client_name', 'delivery_status', 'payment_status', 
+            'total_amount', 'created_at', 'updated_at', 'location', 'street'
+        ]
+        read_only_fields = fields
+
+
+class ShopOrderUpdateSerializer(serializers.ModelSerializer):
+    """
+    Strict write-optimised serializer for ShopVendors to authorisedly update 
+    ONLY the payment status (payment_status).
+    """
+    payment_status = serializers.ChoiceField(
+        choices=[Order.PaymentStatus.PAID, Order.PaymentStatus.FAILED]
+    )
+
+    class Meta:
+        model = Order
+        fields = ['payment_status']
+
+    def validate_payment_status(self, value):
+        # Additional validation logic checking the behaviour of state transitions
+        if self.instance.payment_status == Order.PaymentStatus.PAID:
+            raise serializers.ValidationError("This specific order has already been marked as PAID.")
+        return value

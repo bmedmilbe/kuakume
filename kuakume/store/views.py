@@ -1,5 +1,9 @@
 from django.contrib.auth import get_user_model
 from rest_framework import mixins, permissions, viewsets
+from rest_framework.exceptions import PermissionDenied
+from shopping.models import Order
+
+from store.permissions import IsVendorActive
 
 from .models import (
     Category,
@@ -22,6 +26,8 @@ from .serializers import (
     ProductImagesCreateOrUpdateSerializer,
     ProductImagesSerializer,
     ProductSerializer,
+    ShopOrderReadSerializer,
+    ShopOrderUpdateSerializer,
     ShopVendorCreateOrUpdateSerializer,
     ShopVendorSerializer,
     StreetSerializer,
@@ -40,7 +46,7 @@ from rest_framework.response import Response
 
 class VendorViewSet(viewsets.GenericViewSet):
     serializer_class = VendorSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_queryset(self):
@@ -102,7 +108,7 @@ class DistrictViewSet(
 
     queryset = District.objects.all().order_by("name")
     serializer_class = DistrictSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
 
 # =========================================================
@@ -117,7 +123,7 @@ class StreetViewSet(
 
     queryset = Street.objects.select_related("district").order_by("name")
     serializer_class = StreetSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
 
 # =========================================================
@@ -134,7 +140,7 @@ class ShopVendorViewSet(viewsets.ModelViewSet):
       - POST/PUT/PATCH   -> ShopVendorCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -166,7 +172,7 @@ class CategoryViewSet(
 
     queryset = Category.objects.all().order_by("name")
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
 
 # =========================================================
@@ -181,7 +187,7 @@ class ProductViewSet(viewsets.ModelViewSet):
       - POST/PUT/PATCH   -> ProductCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -225,7 +231,7 @@ class ProductImagesViewSet(viewsets.ModelViewSet):
       - POST/PUT/PATCH   -> ProductImagesCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -267,7 +273,7 @@ class ContentViewSet(
 
     queryset = Content.objects.all().order_by("name")
     serializer_class = ContentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
 
 # =========================================================
@@ -284,7 +290,7 @@ class ProductContentViewSet(viewsets.ModelViewSet):
       - POST/PUT/PATCH   -> ProductContentCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsVendorActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -307,3 +313,46 @@ class ProductContentViewSet(viewsets.ModelViewSet):
         ctx["user_pk"] = self.request.user.id
         ctx["product_pk"] = self.kwargs.get("product_pk")
         return ctx
+
+
+
+
+class ShopOrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for ShopVendors to manage and scrutinise orders for their respective shops.
+    Supports nested routing configurations via the URL-extracted 'shop_pk' parameter.
+    """
+    permission_classes = [IsVendorActive]
+
+    def get_queryset(self):
+        user = self.request.user
+        
+        # 1. Enforce validation checking that the user profiles an authentic Vendor account
+        if not hasattr(user, 'vendor_user'):
+            raise PermissionDenied("Only users categorised as Vendors are permitted to access this resource.")
+            
+        vendor = user.vendor_user
+        shop_pk = self.kwargs.get('shop_pk')
+
+        # 2. Strict isolation: Filter only the orders bound to the explicit shop parameter 
+        # whilst ensuring that shop is fully owned and managed by the authenticated Vendor.
+        return Order.objects.filter(
+            shop_id=shop_pk,
+            shop__vendor=vendor
+        ).select_related('client__user', 'street')
+
+    def get_serializer_class(self):
+        """
+        Dynamically alternate and customse the serializer class based on HTTP methods.
+        """
+        if self.request.method in permissions.SAFE_METHODS:
+            return ShopOrderReadSerializer
+        return ShopOrderUpdateSerializer
+
+    def get_serializer_context(self):
+        """
+        Inject the 'shop_pk' into the serializer context dictionary to aid nested validation checks.
+        """
+        context = super().get_serializer_context()
+        context['shop_pk'] = self.kwargs.get('shop_pk')
+        return context
