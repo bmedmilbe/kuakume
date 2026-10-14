@@ -4,6 +4,10 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.core.files.uploadedfile import SimpleUploadedFile
+from shopping.models import Order
+from shopping.tests.test_shopping_models import _create_order
+
+from store.serializers import ShopOrderUpdateSerializer
 
 from ..models import (
     Product,
@@ -603,3 +607,56 @@ class TestProductContentCreateOrUpdateSerializer:
         )
         assert not serializer.is_valid()
         assert 'non_field_errors' in serializer.errors
+
+
+
+# ============================================================================
+# ShopOrderUpdateSerializer Tests
+# ============================================================================
+
+@pytest.mark.django_db
+class TestShopOrderUpdateSerializer:
+
+    @pytest.mark.parametrize("status_option", [
+        Order.PaymentStatus.PAID,
+        Order.PaymentStatus.FAILED
+    ])
+    def test_allow_authorised_payment_status_transitions(self, status_option):
+        """
+        Verify that the status alteration serializer accepts the explicit transition 
+        states required by the shop vendor platform.
+        """
+        # Arrange
+        order, _ = _create_order(payment_status=Order.PaymentStatus.SENT)
+        update_payload = {
+            "payment_status": status_option
+        }
+
+        # Act
+        serializer = ShopOrderUpdateSerializer(instance=order, data=update_payload)
+        
+        # Assert
+        assert serializer.is_valid() == True
+        updated_order = serializer.save()
+        assert updated_order.payment_status == status_option
+
+    def test_reject_update_if_order_payment_status_is_already_paid(self):
+        """
+        Verify the validation behavior prevents a vendor modifying or transitioning
+        away from a payment status that has already been registered as PAID.
+        """
+        # Arrange
+        order,_ = _create_order(payment_status=Order.PaymentStatus.PAID)
+        update_payload = {
+            "payment_status": Order.PaymentStatus.FAILED
+        }
+
+        # Act
+        serializer = ShopOrderUpdateSerializer(instance=order, data=update_payload)
+        
+        # Assert
+        assert serializer.is_valid() == False
+        assert "payment_status" in serializer.errors
+        assert str(serializer.errors["payment_status"][0]) == "This specific order has already been marked as PAID."
+
+

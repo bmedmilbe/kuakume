@@ -33,6 +33,7 @@ class VendorFactory(DjangoModelFactory):
     account_number_stp = factory.Faker('bban')
     account_name_pt = factory.Faker('name')
     account_name_stp = factory.Faker('name')
+    is_active=True
 
 
 class DistrictFactory(DjangoModelFactory):
