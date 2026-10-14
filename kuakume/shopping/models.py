@@ -29,6 +29,7 @@ class Order(models.Model):
         PAID = 'PAID', 'Paid'
         FAILED = 'FAILED', 'Failed'
 
+
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='orders')
     deliver = models.ForeignKey(Deliver, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     # Statuses 
@@ -53,6 +54,17 @@ class Order(models.Model):
             (item.quantity * item.price_at_purchase for item in self.items.all()), 
             Decimal('0.00')
         )
+
+
+class OrderPaymentProof(models.Model):
+    proof = models.FileField(upload_to="order/proof/",verbose_name="Order Confirmation")
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='proofs')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)  
+    updated_at = models.DateTimeField(auto_now=True)      
+
+    
 
 
 class OrderItem(models.Model):
