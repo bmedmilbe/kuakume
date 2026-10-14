@@ -10,7 +10,7 @@ from store.tests.factories import (
     StreetFactory,
 )
 
-from ..models import Cart, CartItem, Client, Order, OrderItem
+from ..models import Cart, CartItem, Client, Order, OrderItem, OrderPaymentProof
 
 User = get_user_model()
 
@@ -125,3 +125,9 @@ class CartItemFactory(DjangoModelFactory):
     quantity = 1
     # price_at_purchase is auto-filled from product.price in CartItem.save()
     price_at_purchase = None
+
+class OrderPaymentProofFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = OrderPaymentProof
+    proof = factory.django.ImageField(color='blue', filename='test_proof.gif')
+    order = factory.SubFactory(OrderFactory)

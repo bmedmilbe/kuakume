@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.urls import reverse
+from rest_framework import status
 from rest_framework.test import APIClient
 from store.tests.factories import (
     ProductFactory,
@@ -11,18 +12,20 @@ from store.tests.factories import (
     StoreUserFactory,
 )
 
+from shopping.models import CartItem, Order, OrderItem, OrderPaymentProof
 from shopping.tests.test_shopping_models import (
     _create_order,
     _create_order_with_user,
     _create_product,
 )
+from shopping.tests.test_shopping_serializers import _generate_file
 
-from ..models import CartItem, Order, OrderItem
 from .factories import (
     CartFactory,
     CartItemFactory,
     ClientCartFactory,
     OrderItemFactory,
+    OrderPaymentProofFactory,
 )
 
 User = get_user_model()
@@ -55,7 +58,7 @@ class TestClientViewSet:
         client_obj = user.clients
 
         api = _auth_client(user)
-        response = api.get(reverse("client-me"))
+        response = api.get(reverse("shopping:client-me"))
 
         assert response.status_code == 200
         assert response.data["id"] == client_obj.id
@@ -64,7 +67,7 @@ class TestClientViewSet:
 
     def test_get_me_anonymous_gets_401(self):
         api = APIClient()
-        response = api.get(reverse("client-me"))
+        response = api.get(reverse("shopping:client-me"))
 
         assert response.status_code == 401
 
@@ -73,7 +76,7 @@ class TestClientViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("client-me"),
+            reverse("shopping:client-me"),
             data={"lon": 12.5, "lat": 34.5},
             format="json",
         )
@@ -88,7 +91,7 @@ class TestClientViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("client-me"),
+            reverse("shopping:client-me"),
             data={"lon": 12.5},
             format="json",
         )
@@ -102,7 +105,7 @@ class TestClientViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("client-me"),
+            reverse("shopping:client-me"),
             data={"lon": lon, "lat": 0.0},
             format="json",
         )
@@ -116,7 +119,7 @@ class TestClientViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("client-me"),
+            reverse("shopping:client-me"),
             data={"lon": 0.0, "lat": lat},
             format="json",
         )
@@ -127,14 +130,14 @@ class TestClientViewSet:
     def test_put_me_not_allowed(self):
         user = StoreUserFactory()
         api = _auth_client(user)
-        response = api.put(reverse("client-me"), data={}, format="json")
+        response = api.put(reverse("shopping:client-me"), data={}, format="json")
 
         assert response.status_code == 405
 
     def test_delete_me_not_allowed(self):
         user = StoreUserFactory()
         api = _auth_client(user)
-        response = api.delete(reverse("client-me"))
+        response = api.delete(reverse("shopping:client-me"))
 
         assert response.status_code == 405
 
@@ -157,14 +160,14 @@ class TestOrderViewSet:
         _,_,_ = _create_order_with_user()
 
         api = _auth_client(user_a)
-        response = api.get(reverse("order-list"))
+        response = api.get(reverse("shopping:order-list"))
 
         assert response.status_code == 200
         assert len(response.data) == 1
 
     def test_list_anonymous_gets_401(self):
         api = APIClient()
-        response = api.get(reverse("order-list"))
+        response = api.get(reverse("shopping:order-list"))
 
         assert response.status_code == 401
 
@@ -173,7 +176,7 @@ class TestOrderViewSet:
         order,_, user =_create_order_with_user()
 
         api = _auth_client(user)
-        response = api.get(reverse("order-detail", args=[order.id]))
+        response = api.get(reverse("shopping:order-detail", args=[order.id]))
 
         assert response.status_code == 200
         assert response.data["id"] == order.id
@@ -184,7 +187,7 @@ class TestOrderViewSet:
         order_b, _, _ = _create_order_with_user()
 
         api = _auth_client(user_a)
-        response = api.get(reverse("order-detail", args=[order_b.id]))
+        response = api.get(reverse("shopping:order-detail", args=[order_b.id]))
 
         assert response.status_code == 404
 
@@ -194,7 +197,7 @@ class TestOrderViewSet:
         user.clients.save()
 
         api = _auth_client(user)
-        response = api.post(reverse("order-list"), data={}, format="json")
+        response = api.post(reverse("shopping:order-list"), data={}, format="json")
 
         assert response.status_code == 201
         order = Order.objects.get(id=response.data["id"])
@@ -207,7 +210,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-list"),
+            reverse("shopping:order-list"),
             data={"lon": 11.0, "lat": 22.0},
             format="json",
         )
@@ -223,7 +226,7 @@ class TestOrderViewSet:
         user.clients.save()
 
         api = _auth_client(user)
-        response = api.post(reverse("order-list"), data={}, format="json")
+        response = api.post(reverse("shopping:order-list"), data={}, format="json")
 
         assert response.status_code == 400
         assert "location" in response.data
@@ -233,7 +236,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-list"),
+            reverse("shopping:order-list"),
             data={"lon": 11.0},
             format="json",
         )
@@ -247,7 +250,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("order-detail", args=[order.id]),
+            reverse("shopping:order-detail", args=[order.id]),
             data={"lon": 3.0, "lat": 4.0},
             format="json",
         )
@@ -264,7 +267,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user_a)
         response = api.patch(
-            reverse("order-detail", args=[order_b.id]),
+            reverse("shopping:order-detail", args=[order_b.id]),
             data={"lon": 3.0, "lat": 4.0},
             format="json",
         )
@@ -276,7 +279,7 @@ class TestOrderViewSet:
         order_id = order.id
 
         api = _auth_client(user)
-        response = api.delete(reverse("order-detail", args=[order_id]))
+        response = api.delete(reverse("shopping:order-detail", args=[order_id]))
 
         assert response.status_code == 204
         assert Order.objects.filter(id=order_id).exists() is False
@@ -286,11 +289,11 @@ class TestOrderViewSet:
         order_b,_,user_b = _create_order_with_user()
 
         api = _auth_client(user_a)
-        response = api.delete(reverse("order-detail", args=[order_b.id]))
+        response = api.delete(reverse("shopping:order-detail", args=[order_b.id]))
 
         
         api_b = _auth_client(user_b)
-        response_b = api_b.delete(reverse("order-detail", args=[order_b.id]))
+        response_b = api_b.delete(reverse("shopping:order-detail", args=[order_b.id]))
 
         assert response.status_code == 404
         assert response_b.status_code == 204
@@ -302,7 +305,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("order-detail", args=[order.id]),
+            reverse("shopping:order-detail", args=[order.id]),
             data={"shop": None},
             format="json",
         )
@@ -315,7 +318,7 @@ class TestOrderViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("order-detail", args=[order.id]),
+            reverse("shopping:order-detail", args=[order.id]),
             data={"delivery_status": Order.DeliveryStatus.CANCELLED,
                   "lon": 45.0, "lat": 90.0},
             format="json",
@@ -339,7 +342,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user_a)
         response = api.get(
-            reverse("order-items-list", kwargs={"order_pk": order_a.id})
+            reverse("shopping:order-items-list", kwargs={"order_pk": order_a.id})
         )
 
         assert response.status_code == 200
@@ -349,7 +352,7 @@ class TestOrderItemViewSet:
         order,_ = _create_order()
         api = APIClient()
         response = api.get(
-            reverse("order-items-list", kwargs={"order_pk": order.id})
+            reverse("shopping:order-items-list", kwargs={"order_pk": order.id})
         )
 
         assert response.status_code == 401
@@ -360,7 +363,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-items-list", kwargs={"order_pk": order.id}),
+            reverse("shopping:order-items-list", kwargs={"order_pk": order.id}),
             data={"product": product.id, "quantity": 2},
             format="json",
         )
@@ -377,7 +380,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user_a)
         response = api.post(
-            reverse("order-items-list", kwargs={"order_pk": order_a.id}),
+            reverse("shopping:order-items-list", kwargs={"order_pk": order_a.id}),
             data={"product": product.id, "quantity": 1},
             format="json",
         )
@@ -390,7 +393,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-items-list", kwargs={"order_pk": order.id}),
+            reverse("shopping:order-items-list", kwargs={"order_pk": order.id}),
             data={"product": other_product.id, "quantity": 1},
             format="json",
         )
@@ -405,7 +408,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-items-list", kwargs={"order_pk": order.id}),
+            reverse("shopping:order-items-list", kwargs={"order_pk": order.id}),
             data={"product": product.id, "quantity": 1},
             format="json",
         )
@@ -419,7 +422,7 @@ class TestOrderItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("order-items-list", kwargs={"order_pk": order.id}),
+            reverse("shopping:order-items-list", kwargs={"order_pk": order.id}),
             data={"product": product.id, "quantity": quantity},
             format="json",
         )
@@ -434,7 +437,7 @@ class TestOrderItemViewSet:
         api = _auth_client(user)
         response = api.patch(
             reverse(
-                "order-items-detail",
+                "shopping:order-items-detail",
                 kwargs={"order_pk": order.id, "pk": item.id},
             ),
             data={"quantity": 7},
@@ -453,7 +456,7 @@ class TestOrderItemViewSet:
         api = _auth_client(user)
         response = api.delete(
             reverse(
-                "order-items-detail",
+                "shopping:order-items-detail",
                 kwargs={"order_pk": order.id, "pk": item_id},
             )
         )
@@ -470,7 +473,7 @@ class TestCartViewSet:
 
     def test_guest_can_create_cart(self):
         api = APIClient()
-        response = api.post(reverse("cart-list"), data={}, format="json")
+        response = api.post(reverse("shopping:cart-list"), data={}, format="json")
 
         assert response.status_code == 201
         assert response.data["guest_token"] is not None
@@ -478,13 +481,13 @@ class TestCartViewSet:
 
     def test_guest_create_twice_returns_400(self):
         api = APIClient()
-        first = api.post(reverse("cart-list"), data={}, format="json")
+        first = api.post(reverse("shopping:cart-list"), data={}, format="json")
         assert first.status_code == 201
 
         token = first.cookies["guest_cart_token"].value
         api.cookies["guest_cart_token"] = token
 
-        second = api.post(reverse("cart-list"), data={}, format="json")
+        second = api.post(reverse("shopping:cart-list"), data={}, format="json")
         assert second.status_code == 400
         assert "detail" in second.data
 
@@ -492,7 +495,7 @@ class TestCartViewSet:
         user = StoreUserFactory()
 
         api = _auth_client(user)
-        response = api.post(reverse("cart-list"), data={}, format="json")
+        response = api.post(reverse("shopping:cart-list"), data={}, format="json")
 
         assert response.status_code == 201
         assert response.data["client"] is not None
@@ -503,7 +506,7 @@ class TestCartViewSet:
         cart = ClientCartFactory(client=user.clients)
 
         api = _auth_client(user)
-        response = api.get(reverse("cart-detail", args=[cart.id]))
+        response = api.get(reverse("shopping:cart-detail", args=[cart.id]))
 
         assert response.status_code == 200
         assert response.data["id"] == cart.id
@@ -513,7 +516,7 @@ class TestCartViewSet:
 
         api = APIClient()
         _set_guest_cookie(api, cart)
-        response = api.get(reverse("cart-detail", args=[cart.id]))
+        response = api.get(reverse("shopping:cart-detail", args=[cart.id]))
 
         assert response.status_code == 200
         assert response.data["id"] == cart.id
@@ -522,7 +525,7 @@ class TestCartViewSet:
         cart = CartFactory()
 
         api = APIClient()
-        response = api.get(reverse("cart-detail", args=[cart.id]))
+        response = api.get(reverse("shopping:cart-detail", args=[cart.id]))
 
         assert response.status_code == 404
 
@@ -532,7 +535,7 @@ class TestCartViewSet:
 
         api = _auth_client(user)
         response = api.patch(
-            reverse("cart-detail", args=[user.clients.carts.first().id]),
+            reverse("shopping:cart-detail", args=[user.clients.carts.first().id]),
             data={"lon": 5.0, "lat": 6.0},
             format="json",
         )
@@ -548,7 +551,7 @@ class TestCartViewSet:
         cart_id = cart.id
 
         api = _auth_client(user)
-        response = api.delete(reverse("cart-detail", args=[cart_id]))
+        response = api.delete(reverse("shopping:cart-detail", args=[cart_id]))
 
         assert response.status_code == 204
         cart.refresh_from_db()
@@ -559,7 +562,7 @@ class TestCartViewSet:
 
         api = APIClient()
         _set_guest_cookie(api, cart)
-        response = api.delete(reverse("cart-detail", args=[cart.id]))
+        response = api.delete(reverse("shopping:cart-detail", args=[cart.id]))
 
         assert response.status_code == 204
         assert response.cookies["guest_cart_token"].value == ""
@@ -573,7 +576,7 @@ class TestCartViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-merge"),
+            reverse("shopping:cart-merge"),
             data={"guest_token": str(guest_cart.guest_token)},
             format="json",
         )
@@ -587,7 +590,7 @@ class TestCartViewSet:
 
         api = APIClient()
         response = api.post(
-            reverse("cart-merge"),
+            reverse("shopping:cart-merge"),
             data={"guest_token": str(guest_cart.guest_token)},
             format="json",
         )
@@ -599,7 +602,7 @@ class TestCartViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-merge"),
+            reverse("shopping:cart-merge"),
             data={"guest_token": str(uuid.uuid4())},
             format="json",
         )
@@ -622,7 +625,7 @@ class TestCartItemViewSet:
 
         api = _auth_client(user)
         response = api.get(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id})
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id})
         )
 
         assert response.status_code == 200
@@ -636,7 +639,7 @@ class TestCartItemViewSet:
         api = APIClient()
         _set_guest_cookie(api, cart)
         response = api.get(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id})
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id})
         )
 
         assert response.status_code == 200
@@ -649,7 +652,7 @@ class TestCartItemViewSet:
 
         api = APIClient()
         response = api.get(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id})
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id})
         )
 
         assert response.status_code == 200
@@ -662,7 +665,7 @@ class TestCartItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id}),
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id}),
             data={"product": product.id, "quantity": 2},
             format="json",
         )
@@ -681,7 +684,7 @@ class TestCartItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id}),
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id}),
             data={"product": other_product.id, "quantity": 1},
             format="json",
         )
@@ -697,7 +700,7 @@ class TestCartItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id}),
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id}),
             data={"product": product.id, "quantity": 1},
             format="json",
         )
@@ -714,7 +717,7 @@ class TestCartItemViewSet:
 
         api = _auth_client(user)
         response = api.post(
-            reverse("cart-items-list", kwargs={"cart_pk": cart.id}),
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart.id}),
             data={"product": product.id, "quantity": quantity},
             format="json",
         )
@@ -730,7 +733,7 @@ class TestCartItemViewSet:
         api = _auth_client(user)
         response = api.patch(
             reverse(
-                "cart-items-detail",
+                "shopping:cart-items-detail",
                 kwargs={"cart_pk": cart.id, "pk": item.id},
             ),
             data={"quantity": 9},
@@ -750,7 +753,7 @@ class TestCartItemViewSet:
         api = _auth_client(user)
         response = api.delete(
             reverse(
-                "cart-items-detail",
+                "shopping:cart-items-detail",
                 kwargs={"cart_pk": cart.id, "pk": item_id},
             )
         )
@@ -768,7 +771,7 @@ class TestCartItemViewSet:
         _set_guest_cookie(api, cart_a)
         response = api.get(
             reverse(
-                "cart-items-detail",
+                "shopping:cart-items-detail",
                 kwargs={"cart_pk": cart_b.id, "pk": item_b.id},
             )
         )
@@ -787,7 +790,7 @@ class TestCrossUserIsolation:
         order_b, _, _ =_create_order_with_user()
 
         api = _auth_client(user_a)
-        response = api.get(reverse("order-detail", args=[order_b.id]))
+        response = api.get(reverse("shopping:order-detail", args=[order_b.id]))
 
         assert response.status_code == 404
 
@@ -798,7 +801,7 @@ class TestCrossUserIsolation:
 
         api = _auth_client(user_a)
         # user_a has no cart → 404 regardless of the ID sent
-        response = api.get(reverse("cart-detail", args=[1]))
+        response = api.get(reverse("shopping:cart-detail", args=[1]))
 
         assert response.status_code == 404
 
@@ -811,8 +814,135 @@ class TestCrossUserIsolation:
 
         api = _auth_client(user_a)
         response = api.get(
-            reverse("cart-items-list", kwargs={"cart_pk": cart_b.id})
+            reverse("shopping:cart-items-list", kwargs={"cart_pk": cart_b.id})
         )
 
         assert response.status_code == 200
         assert len(response.data) == 0
+
+
+
+
+# ============================================================================
+# OrderPaymentProofViewSet Tests
+# ============================================================================
+
+@pytest.mark.django_db
+class TestOrderPaymentProofViewSet:
+
+    def test_unauthenticated_user_cannot_access_endpoints(self):
+        """
+        Verify that requests from anonymous users are blocked by the permission layer.
+        """
+        # Arrange
+        client = APIClient()
+        order, _ = _create_order()
+        
+        # drf-nested-routers lookup configuration name format: {basename}-{nested_lookup_name}-list
+        url = reverse("shopping:order-proofs-list", kwargs={"order_pk": order.pk})
+
+        # Act
+        response = client.get(url)
+
+        # Assert
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_client_can_successfully_upload_payment_proof(self):
+        """
+        Verify that an authenticated client can upload a file, creating a proof
+        record linked to the order and updating the order status to 'SENT'.
+        """
+        # Arrange
+        client = APIClient()
+        order,_,user = _create_order_with_user()
+        client.force_authenticate(user=user)
+        
+        url = reverse("shopping:order-proofs-list", kwargs={"order_pk": order.pk})
+        
+        dummy_file = _generate_file()
+        payload = {"proof": dummy_file}
+
+        # Act
+        response = client.post(url, data=payload, format="multipart")
+        order.refresh_from_db()
+
+        # Assert
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["id"] is not None
+        assert order.payment_status == Order.PaymentStatus.SENT
+        assert OrderPaymentProof.objects.filter(order=order).count() == 1
+
+   
+
+    def test_client_cannot_upload_proof_for_non_existent_order(self):
+        """
+        Verify that routing a payload towards a non-existent order primary key
+        is caught by the inner serializer validation layer.
+        """
+        # Arrange
+        client = APIClient()
+        user = StoreUserFactory()
+        client.force_authenticate(user=user)
+        
+        url = "api/shopping/orders/99999/proofs/"
+        dummy_file = _generate_file()
+        payload = {"proof": dummy_file}
+
+        # Act
+        response = client.post(url, data=payload, format="multipart")
+
+        # Assert
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        
+
+    def test_list_endpoint_only_returns_proofs_belonging_to_nested_order(self):
+        """
+        Verify that get_queryset correctly isolates and filters records matching
+        the nested route's order parameter context.
+        """
+        # Arrange
+        client = APIClient()
+        order_target, _, user = _create_order_with_user()
+        client.force_authenticate(user=user)
+        
+        
+        order_other, _, _ = _create_order_with_user()
+        
+        # Generate proofs across different orders
+        proof_target = OrderPaymentProofFactory(order=order_target)
+        OrderPaymentProofFactory(order=order_other)
+        
+        url = reverse("shopping:order-proofs-list", kwargs={"order_pk": order_target.pk})
+
+        # Act
+        response = client.get(url)
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert len(response.data) == 1
+        assert response.data[0]["id"] == proof_target.id
+
+    def test_retrieve_endpoint_returns_correct_proof_serialised_structure(self):
+        """
+        Verify that fetching a specific instance via a safe GET method uses the
+        standard read serializer format.
+        """
+        # Arrange
+        client = APIClient()
+        order, _, user = _create_order_with_user()
+        client.force_authenticate(user=user)
+        
+        proof = OrderPaymentProofFactory(order=order)
+        
+        # Nested detail naming convention format: {basename}-{nested_lookup_name}-detail
+        url = reverse("shopping:order-proofs-detail", kwargs={"order_pk": order.pk, "pk": proof.pk})
+
+        # Act
+        response = client.get(url)
+
+        # Assert
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["id"] == proof.id
+        assert "proof" in response.data
+
+    

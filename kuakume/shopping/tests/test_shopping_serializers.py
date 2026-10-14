@@ -4,7 +4,8 @@ from decimal import Decimal
 import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
-from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
+from rest_framework.exceptions import ValidationError
 from shipping.tests.factories import DeliverFactory
 from store.tests.factories import (
     ProductFactory,
@@ -13,6 +14,8 @@ from store.tests.factories import (
     StreetFactory,
 )
 
+from shopping.models import Order, OrderPaymentProof
+from shopping.serializers import OrderPaymentProofCreateSerializer
 from shopping.tests.test_shopping_models import (
     _create_order,
     _create_order_with_client,
@@ -40,20 +43,20 @@ from .factories import (
     ClientCartFactory,
     ClientFactory,
     OrderItemFactory,
+    ShopVendorFactory,
 )
 
 User = get_user_model()
 
 
-# =========================================================
-# Helper — instantiate a fresh APIClient inside each test
-# =========================================================
-def _auth_client(user):
-    """Return an APIClient already authenticated as `user`."""
-    client = APIClient()
-    client.force_authenticate(user=user)
-    return client
 
+def _generate_file():
+    dummy_file = SimpleUploadedFile(
+        name="receipt.jpg",
+        content=b"file_content",
+        content_type="image/jpeg"
+    )
+    return dummy_file
 
 # =========================================================
 # ClientSerializer (read)
@@ -1021,4 +1024,113 @@ class TestCartMergeSerializer:
         )
         assert serializer.is_valid() is False
         assert "guest_token" in serializer.errors
+
+
+
+
+
+# ============================================================================
+# OrderPaymentProofCreateSerializer Tests
+# ============================================================================
+
+@pytest.mark.django_db
+class TestOrderPaymentProofCreateSerializer:
+
+    def test_create_payment_proof_and_updates_order_status_successfully(self):
+        """
+        Verify that passing a valid order_pk via context instantiates the proof record
+        and automatically transitions the parental order payment status to 'SENT'.
+        """
+        # Arrange
+        order,_ = _create_order()
+        
+        # Minimised dummy file block to simulate file upload behaviour
+        dummy_file = _generate_file()
+        
+        serializer_data = {
+            "proof": dummy_file 
+        }
+        
+        serializer_context = {
+            "order_pk": order.pk
+        }
+
+        # Act
+        serializer = OrderPaymentProofCreateSerializer(
+            data=serializer_data, 
+            context=serializer_context
+        )
+        
+        assert serializer.is_valid() == True
+        payment_proof = serializer.save()
+        
+        # Refresh parent order instance state from database
+        order.refresh_from_db()
+
+        # Assert
+        assert isinstance(payment_proof, OrderPaymentProof) == True
+        assert order.payment_status == Order.PaymentStatus.SENT
+        assert payment_proof.order.pk == order.pk
+
+    
+
+    def test_raise_validation_error_when_order_pk_context_is_missing(self):
+        """
+        Verify that missing the mandatory 'order_pk' parameter within the serializer
+        context layer triggers a structural validation failure exception.
+        """
+        # Arrange
+        dummy_file = _generate_file()
+        
+        serializer_data = {
+            "proof": dummy_file
+        }
+        
+        # Empty context dict context layer tracking
+        serializer_context = {}
+
+        # Act & Assert
+        serializer = OrderPaymentProofCreateSerializer(
+            data=serializer_data, 
+            context=serializer_context
+        )
+        
+        assert serializer.is_valid() == True
+        
+        with pytest.raises(ValidationError) as exception_info:
+            serializer.save()
+            
+        assert "detail" in exception_info.value.detail
+        assert str(exception_info.value.detail["detail"]) == "Order context missing from nested route configuration."
+
+    def test_raise_validation_error_when_order_does_not_exist(self):
+        """
+        Verify that providing an incorrect or non-existent parent order database index 
+        triggers a clean model-level entity resolution failure block.
+        """
+        # Arrange
+        dummy_file = _generate_file()
+        
+        serializer_data = {
+            "proof": dummy_file
+        }
+        
+        # Erroneous out-of-bounds context lookup primary key
+        serializer_context = {
+            "order_pk": 99999
+        }
+
+        # Act & Assert
+        serializer = OrderPaymentProofCreateSerializer(
+            data=serializer_data, 
+            context=serializer_context
+        )
+        
+        assert serializer.is_valid() == True
+        
+        with pytest.raises(ValidationError) as exception_info:
+            serializer.save()
+            
+        assert "order" in exception_info.value.detail
+        assert str(exception_info.value.detail["order"]) == "The specified order does not exist."
 

@@ -12,6 +12,8 @@ from store.tests.factories import (
     StoreUserFactory,
 )
 
+from shopping.models import OrderPaymentProof
+
 from ..models import Cart, CartItem, Order, OrderItem
 from .factories import (
     CartFactory,
@@ -20,6 +22,7 @@ from .factories import (
     ClientFactory,
     OrderFactory,
     OrderItemFactory,
+    OrderPaymentProofFactory,
 )
 
 
@@ -39,7 +42,9 @@ def _create_order(
     
     user_vendor = StoreUserFactory(phone=_fake_number())
     vendor=user_vendor.vendor_user
-    
+    vendor.is_active=True
+    vendor.save()
+
     user_deliver = StoreUserFactory(phone=_fake_number())
     deliver=user_deliver.delivery_profile
     
@@ -56,6 +61,8 @@ def _create_order(
     return order, product
 
 
+
+
 def _create_order_with_user(
         payment_status=Order.PaymentStatus.PENDING, 
         delivery_status=Order.DeliveryStatus.PENDING, 
@@ -67,6 +74,8 @@ def _create_order_with_user(
     
     user_vendor = StoreUserFactory(phone=_fake_number())
     vendor=user_vendor.vendor_user
+    vendor.is_active=True
+    vendor.save()
     
     user_deliver = StoreUserFactory(phone=_fake_number())
     deliver=user_deliver.delivery_profile
@@ -82,6 +91,34 @@ def _create_order_with_user(
                          location=location)
             
     return order, product, user_client
+def _create_order_with_user_and_shop(
+        payment_status=Order.PaymentStatus.PENDING, 
+        delivery_status=Order.DeliveryStatus.PENDING, 
+        product_name="Apple", price=Decimal("5.00"),
+        location=Point(11.22, 33.44, srid=4326)
+        ):
+    user_client = StoreUserFactory(phone=_fake_number())
+    client=user_client.clients
+    
+    user_vendor = StoreUserFactory(phone=_fake_number())
+    vendor=user_vendor.vendor_user
+    vendor.is_active=True
+    vendor.save()
+    
+    user_deliver = StoreUserFactory(phone=_fake_number())
+    deliver=user_deliver.delivery_profile
+    
+    shop = ShopVendorFactory(vendor=vendor)
+    product = ProductFactory(shop=shop, name = product_name, price=price)
+    
+    order = OrderFactory(client=client, 
+                         shop=shop, 
+                         deliver=deliver, 
+                         payment_status=payment_status, 
+                         delivery_status=delivery_status,
+                         location=location)
+            
+    return user_vendor, shop, order, product
 
 
 def _create_order_with_client(
@@ -90,6 +127,8 @@ def _create_order_with_client(
     
     user_vendor = StoreUserFactory(phone=_fake_number())
     vendor=user_vendor.vendor_user
+    vendor.is_active=True
+    vendor.save()
     
     user_deliver = StoreUserFactory(phone=_fake_number())
     deliver=user_deliver.delivery_profile
@@ -688,6 +727,49 @@ class TestCartModel:
 
         with pytest.raises(ValidationError):
             cart.attach_to_client(client_b)
+
+# =========================================================
+# OrderPaymentProof
+# =========================================================
+@pytest.mark.django_db
+class TestOrderPaymentProofModel:
+
+    def test_order_payment_proof_creation(self):  # Indented 4 spaces
+        """Test that an OrderPaymentProof instance can be created successfully using its factory."""
+        # Arrange & Act
+        order, _ = _create_order()
+        payment_proof = OrderPaymentProofFactory(order=order)
+
+        # Assert
+        assert isinstance(payment_proof, OrderPaymentProof) == True
+        assert payment_proof.proof.name.startswith("order/proof/") == True
+        assert (payment_proof.created_at is not None) == True
+        assert (payment_proof.updated_at is not None) == True
+
+    def test_foreign_key_relationship(self):  # Indented 4 spaces
+        """Test that the proof relates cleanly back to the core Order instance."""
+        # Arrange
+        order, _ = _create_order()
+        
+        # Act
+        payment_proof = OrderPaymentProofFactory(order=order)
+
+        # Assert
+        assert payment_proof.order == order
+        # Verifies the related_name='orders' configuration
+        assert (payment_proof in order.proofs.all()) == True
+
+    def test_verbose_name_label(self):  # Indented 4 spaces
+        """Test that the proof field verbose_name matches the expected string."""
+        # Arrange
+        order, _ = _create_order()
+        payment_proof = OrderPaymentProofFactory(order=order)
+        
+        # Act
+        field_verbose_name = payment_proof._meta.get_field('proof').verbose_name
+        
+        # Assert
+        assert field_verbose_name == "Order Confirmation"
 
 
 # =========================================================
