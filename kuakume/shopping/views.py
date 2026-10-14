@@ -3,7 +3,10 @@ from django.contrib.auth import get_user_model
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from shopping.models import OrderPaymentProof
 
 from .models import Cart, CartItem, Client, Order, OrderItem
 from .serializers import (
@@ -18,6 +21,8 @@ from .serializers import (
     OrderCreateOrUpdateSerializer,
     OrderItemCreateOrUpdateSerializer,
     OrderItemSerializer,
+    OrderPaymentProofCreateSerializer,
+    OrderPaymentProofSerializer,
     OrderSerializer,
 )
 
@@ -439,3 +444,34 @@ class CartItemViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """The serializer resolves the parent cart from `cart_pk`."""
         serializer.save()
+
+
+
+
+
+class OrderPaymentProofViewSet(
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet
+):
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        order_pk = self.kwargs.get('order_pk')
+        return OrderPaymentProof.objects.filter(order_id=order_pk)
+
+    def get_serializer_class(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return OrderPaymentProofSerializer
+        return OrderPaymentProofCreateSerializer
+
+    def get_serializer_context(self):
+        """
+        Overrides context generation to inject 'order_pk' from 
+        drf-nested-routers directly into the serializer instance.
+        """
+        context = super().get_serializer_context()
+        context['order_pk'] = self.kwargs.get('order_pk')
+        return context

@@ -1,10 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
+from django.db import transaction
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 from shipping.models import Deliver
 from store.models import Product, ShopVendor, Street
 
-from .models import Cart, CartItem, Client, Order, OrderItem
+from shopping.models import Order, OrderPaymentProof
+
+from .models import Cart, CartItem, Client, OrderItem
 
 User = get_user_model()
 
@@ -299,6 +303,59 @@ class OrderSerializer(serializers.ModelSerializer):
             "type": "Point",
             "coordinates": [instance.location.x, instance.location.y],
         }
+
+
+
+
+class OrderPaymentProofCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer used by Clients to upload their payment proof.
+    Extracts 'order_pk' from the serializer context passed by the View.
+    """
+    class Meta:
+        model = OrderPaymentProof
+        fields = ['id', 'proof', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def create(self, validated_data):
+        # 1. Retrieve the order_pk from the context injected by get_serializer_context()
+        order_pk = self.context.get('order_pk')
+        if not order_pk:
+            raise ValidationError({"detail": "Order context missing from nested route configuration."})
+
+        try:
+            # Fetch the specific order instance
+            order = Order.objects.get(pk=order_pk)
+        except Order.DoesNotExist:
+            raise ValidationError({"order": "The specified order does not exist."})
+
+        # 2. Run both creations and updates inside an atomic block for safety
+        with transaction.atomic():
+            # Create the proof record linked to the order
+            payment_proof = OrderPaymentProof.objects.create(
+                order=order,
+                **validated_data
+            )
+            
+            # Update the order payment status to 'SENT' automatically
+            order.payment_status = Order.PaymentStatus.SENT
+            order.save(update_fields=['payment_status', 'updated_at'])
+
+        return payment_proof
+    
+class OrderPaymentProofSerializer(serializers.ModelSerializer):
+    """
+    Serializer used by Clients to upload their payment proof.
+    Extracts 'order_pk' from the serializer context passed by the View.
+    """
+    class Meta:
+        model = OrderPaymentProof
+        fields = ['id', 'proof', 'created_at', 'updated_at']
+
+    
+
+
+
 
 
 class OrderCreateOrUpdateSerializer(serializers.ModelSerializer):
