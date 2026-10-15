@@ -67,9 +67,9 @@ def _create_order_with_user(
         payment_status=Order.PaymentStatus.PENDING, 
         delivery_status=Order.DeliveryStatus.PENDING, 
         product_name="Apple", price=Decimal("5.00"),
-        location=Point(11.22, 33.44, srid=4326)
+        location=Point(11.22, 33.44, srid=4326), user=None
         ):
-    user_client = StoreUserFactory(phone=_fake_number())
+    user_client = StoreUserFactory(phone=_fake_number()) if not user else user
     client=user_client.clients
     
     user_vendor = StoreUserFactory(phone=_fake_number())
@@ -161,6 +161,26 @@ def _create_order_with_shop(
     order = OrderFactory(client=client, 
          shop=shop, 
          deliver=deliver)
+    
+            
+    return order, product
+def _create_order_without_deliver(
+         shop):
+    
+    
+    
+    user_client = StoreUserFactory(phone=_fake_number())
+    client=user_client.clients
+    
+    
+    
+    
+    
+    product = ProductFactory(shop=shop)
+    
+    order = OrderFactory(client=client, 
+         shop=shop, 
+         deliver=None)
     
             
     return order, product
