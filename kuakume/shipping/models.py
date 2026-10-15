@@ -50,6 +50,7 @@ class Deliver(models.Model):
         blank=True
     )
     is_active = models.BooleanField(default=False)
+    is_online = models.BooleanField(default=False)
 
     objects = DeliverQuerySet.as_manager()
 
