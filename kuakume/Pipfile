@@ -33,8 +33,8 @@ pytest-xdist = "*"
 factory-boy = "*"
 faker = "*"
 ruff = "*"
-pytest-asyncio = "*"
 pytest-django = "*"
+pytest-asyncio = "*"
 
 [requires]
 python_version = "3.10"
