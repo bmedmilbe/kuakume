@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import datetime
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -31,6 +31,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -75,7 +76,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'kuakume.wsgi.application'
-
+ASGI_APPLICATION = 'kuakume.asgi.application'
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -132,6 +133,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
    'AUTH_HEADER_TYPES': ('JWT',),
    'TOKEN_OBTAIN_SERIALIZER': 'core.serializers.TokenCreateSerializer',
+   'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=60),
+   'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=1),
+   'USER_ID_CLAIM': 'id',
 }
 
 DJOSER = {
@@ -140,5 +144,14 @@ DJOSER = {
         'user': 'core.serializers.UserSerializer',
         'current_user': 'core.serializers.UserSerializer',
         
+    },
+}
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            #'hosts': [REDIS_URL],
+        },
     },
 }
