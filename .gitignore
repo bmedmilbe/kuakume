@@ -35,6 +35,7 @@ MANIFEST
 .local.env
 .env.txt
 
+
 # ==========================================
 # Django Specific
 # ==========================================
@@ -94,4 +95,6 @@ Thumbs.db
 
 media/
 staticfiles/
+
+kuakume/kuakume/settings/dev.py
 
