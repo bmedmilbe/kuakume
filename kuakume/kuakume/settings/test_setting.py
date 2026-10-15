@@ -22,3 +22,13 @@ CHANNEL_LAYERS= {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
     },
 }
+
+PASSWORD_HASHERS = [
+    "django.contrib.auth.hashers.MD5PasswordHasher",
+]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache"
+    }
+}
