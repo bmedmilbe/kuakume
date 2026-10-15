@@ -486,6 +486,7 @@ class StoreConsumer(AsyncJsonWebsocketConsumer):
             Deliver.objects
             .filter(
                 is_active=True,
+                is_online=True,
                 location__isnull=False,
                 location__distance_lte=(shop.location, D(m=radius_m)),
             )

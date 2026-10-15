@@ -165,6 +165,7 @@ def _courier_near(point, phone=None):
     deliver = courier_user.delivery_profile
     deliver.location = point
     deliver.is_active = True
+    deliver.is_online = True
     deliver.save()
     return courier_user
 
