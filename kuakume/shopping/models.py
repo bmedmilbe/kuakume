@@ -7,14 +7,88 @@ from django.core.exceptions import ValidationError
 from shipping.models import Deliver
 from store.models import Product, ShopVendor, Street
 
+# =========================================================
+# CUSTOM MANAGERS & QUERYSETS FOR AUTOMATIC PERFORMANCE
+# =========================================================
+
+class ClientQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises 'self.user.username' used inside __str__
+        return super().get_queryset().select_related('user', 'street')
+
+
+class OrderQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises 'self.client.user.username', forward FKs, and fetches reverse line items
+        return super().get_queryset().select_related(
+            'client__user', 
+            'client__street',
+            'deliver', 
+            'street', 
+            'shop'
+        ).prefetch_related(
+            'proofs',
+            'items__product__shop'  # Line items and forward product links for totals
+        )
+
+
+class OrderPaymentProofQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises the associated parent order and deep fields
+        return super().get_queryset().select_related(
+            'order__client__user',
+            'order__deliver',
+            'order__street',
+            'order__shop'
+        )
+
+
+class OrderItemQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises 'self.product.name' and 'self.order.id' inside __str__ and properties
+        return super().get_queryset().select_related(
+            'order__client__user',
+            'product__shop'
+        )
+
+
+class CartQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises owner string resolving and related items/products for evaluation properties
+        return super().get_queryset().select_related(
+            'client__user',
+            'shop',
+            'street'
+        ).prefetch_related(
+            'items__product__shop'
+        )
+
+
+class CartItemQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises 'self.product.name' used inside __str__ and deep clean checks
+        return super().get_queryset().select_related(
+            'cart__client__user',
+            'cart__shop',
+            'product__shop'
+        )
+
+
+# =========================================================
+# REFACTORED MODELS
+# =========================================================
 
 class Client(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='clients')
     location = models.PointField(srid=4326, null=True, blank=True)
     street = models.ForeignKey(Street, on_delete=models.CASCADE, related_name='clients', null=True, blank=True)
     is_active = models.BooleanField(default=True)
+
+    objects = ClientQuerySet.as_manager()
+
     def __str__(self):
         return f"Client: {self.user.username}"
+
 
 class Order(models.Model):
     class DeliveryStatus(models.TextChoices):
@@ -29,14 +103,11 @@ class Order(models.Model):
         PAID = 'PAID', 'Paid'
         FAILED = 'FAILED', 'Failed'
 
-
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='orders')
     deliver = models.ForeignKey(Deliver, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
-    # Statuses 
     delivery_status = models.CharField(max_length=20, choices=DeliveryStatus.choices, default=DeliveryStatus.PENDING)
     payment_status = models.CharField(max_length=20, choices=PaymentStatus.choices, default=PaymentStatus.PENDING)
     
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)      
 
@@ -44,6 +115,8 @@ class Order(models.Model):
     street = models.ForeignKey(Street, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     shop = models.ForeignKey(ShopVendor, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     
+    objects = OrderQuerySet.as_manager()
+
     def __str__(self):
         return f"Order #{self.id} - Client: {self.client.user.username}"
 
@@ -57,14 +130,13 @@ class Order(models.Model):
 
 
 class OrderPaymentProof(models.Model):
-    proof = models.FileField(upload_to="order/proof/",verbose_name="Order Confirmation")
+    proof = models.FileField(upload_to="order/proof/", verbose_name="Order Confirmation")
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='proofs')
     
-    # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)      
 
-    
+    objects = OrderPaymentProofQuerySet.as_manager()
 
 
 class OrderItem(models.Model):
@@ -89,6 +161,8 @@ class OrderItem(models.Model):
         decimal_places=2, 
         verbose_name="Price at Purchase"
     )
+
+    objects = OrderItemQuerySet.as_manager()
 
     class Meta:
         verbose_name = "Order Item"
@@ -124,28 +198,7 @@ class OrderItem(models.Model):
         super().save(*args, **kwargs)
 
 
-
-
-# =========================================================
-# Cart
-# =========================================================
 class Cart(models.Model):
-    """
-    A shopping cart.
-
-    A cart is owned either by:
-      - an authenticated Client (`client` is set), or
-      - an anonymous guest (`guest_token` is set).
-
-    Exactly one of the two must be present. Ownership is enforced via a
-    CHECK constraint at the database level as well as `clean()`.
-
-    Business rule: a cart may contain products from **one and only one
-    shop**. The `shop` FK is populated lazily from the first `CartItem`
-    added and then locked in.
-    """
-
-    # Owner — either `client` or `guest_token`, never both, never neither.
     client = models.ForeignKey(
         "Client",
         on_delete=models.CASCADE,
@@ -161,8 +214,6 @@ class Cart(models.Model):
         editable=False,
         help_text="Anonymous cart identifier for unauthenticated users.",
     )
-
-    # Single-shop rule: the shop this cart is bound to.
     shop = models.ForeignKey(
         "store.ShopVendor",
         on_delete=models.PROTECT,
@@ -171,8 +222,6 @@ class Cart(models.Model):
         blank=True,
         help_text="Populated from the first CartItem. Locked afterwards.",
     )
-
-    # Optional delivery info captured during guest checkout.
     location = models.PointField(srid=4326, null=True, blank=True)
     street = models.ForeignKey(
         "store.Street",
@@ -182,10 +231,11 @@ class Cart(models.Model):
         blank=True,
     )
 
-    # Timestamps + lifecycle
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
+
+    objects = CartQuerySet.as_manager()
 
     class Meta:
         constraints = [
@@ -210,9 +260,6 @@ class Cart(models.Model):
         )
         return f"Cart #{self.id} ({owner})"
 
-    # -----------------------------------------------------
-    # Helpers
-    # -----------------------------------------------------
     @property
     def total(self):
         """Sum of all item subtotals."""
@@ -228,13 +275,11 @@ class Cart(models.Model):
     def clean(self):
         super().clean()
 
-        # Exactly one owner.
         if (self.client_id is None) == (self.guest_token is None):
             raise ValidationError(
                 "A cart must have either a client or a guest_token, not both."
             )
 
-        # If a shop is set and items exist, every item must match that shop.
         if self.pk and self.shop_id:
             offending = self.items.exclude(product__shop_id=self.shop_id)
             if offending.exists():
@@ -243,22 +288,11 @@ class Cart(models.Model):
                 )
 
     def save(self, *args, **kwargs):
-        # Assign a fresh guest token on first save if this is a guest cart.
         if self.client_id is None and self.guest_token is None:
             self.guest_token = uuid.uuid4()
         super().save(*args, **kwargs)
 
-    # -----------------------------------------------------
-    # Domain operations
-    # -----------------------------------------------------
     def attach_to_client(self, client):
-        """
-        Claim a guest cart for an authenticated client.
-
-        Called at login/registration: the guest cart's items are moved into
-        the client's existing active cart, or the cart itself is reassigned
-        if the client has no active cart yet.
-        """
         if self.client_id is not None:
             raise ValidationError("Cart already belongs to a client.")
 
@@ -268,35 +302,21 @@ class Cart(models.Model):
             self.guest_token = None
             self.save(update_fields=["client", "guest_token"])
             return self
-
-        # Merge items — respect the single-shop rule.
+            
         if existing.shop_id and self.shop_id and existing.shop_id != self.shop_id:
             raise ValidationError(
                 "Cannot merge: the two carts belong to different shops."
             )
-
+            
         for item in self.items.all():
-            item.merge_into(existing)  # see CartItem.merge_into
-
+            item.merge_into(existing)
+            
         self.is_active = False
         self.save(update_fields=["is_active"])
         return existing
 
 
-# =========================================================
-# CartItem
-# =========================================================
 class CartItem(models.Model):
-    """
-    A single line inside a Cart.
-
-    Mirrors OrderItem, but:
-      - `order` is replaced with `cart`.
-      - `price_at_purchase` is snapshotted from `product.price` at add
-        time (so price changes don't retroactively change the cart).
-      - `clean()` enforces the single-shop rule for the parent cart.
-    """
-
     cart = models.ForeignKey(
         Cart,
         on_delete=models.CASCADE,
@@ -315,10 +335,10 @@ class CartItem(models.Model):
         decimal_places=2,
         verbose_name="Price at Purchase",
     )
-
-    # Audit
     added_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    objects = CartItemQuerySet.as_manager()
 
     class Meta:
         verbose_name = "Cart Item"
@@ -337,15 +357,13 @@ class CartItem(models.Model):
 
     def clean(self):
         super().clean()
-
         if not self.cart or not self.product:
             return
-
-        # Single-shop rule: lock the cart's shop on first item, then enforce.
+            
         if not self.cart.shop_id:
             self.cart.shop = self.product.shop
             self.cart.save(update_fields=["shop"])
-
+            
         elif self.product.shop_id != self.cart.shop_id:
             raise ValidationError(
                 {
@@ -359,28 +377,17 @@ class CartItem(models.Model):
             )
 
     def save(self, *args, **kwargs):
-        # Snapshot price from product if this is a new item.
         if self._state.adding and self.product and not self.price_at_purchase:
             self.price_at_purchase = self.product.price
-
         self.full_clean()
         super().save(*args, **kwargs)
 
-    # -----------------------------------------------------
-    # Merge helper (used by Cart.attach_to_client)
-    # -----------------------------------------------------
     def merge_into(self, target_cart):
-        """
-        Merge this item's quantity into `target_cart`.
-
-        If the same product already exists in the target cart, sum the
-        quantities; otherwise, re-parent the item.
-        """
         if target_cart.shop_id and self.product.shop_id != target_cart.shop_id:
             raise ValidationError(
                 "Cannot merge item: it belongs to a different shop."
             )
-
+            
         existing = CartItem.objects.filter(
             cart=target_cart, product=self.product
         ).first()

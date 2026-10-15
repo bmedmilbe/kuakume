@@ -3,6 +3,37 @@ from django.contrib.gis.db import models
 from django.core.validators import MinLengthValidator, RegexValidator
 from store.models import Street
 
+# =========================================================
+# CUSTOM MANAGERS & QUERYSETS FOR AUTOMATIC PERFORMANCE
+# =========================================================
+
+class DeliverQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises 'self.user.username' used inside __str__
+        # Prefetches reverse record metadata to lower footprint in serialisation sweeps
+        return super().get_queryset().select_related(
+            'user', 
+            'street'
+        ).prefetch_related(
+            'data_records__approved_by',
+            'data_records__street'
+        )
+
+
+class DeliverDataQuerySet(models.QuerySet):
+    def get_queryset(self):
+        # Optimises forward relations, foreign keys, and administrative validation lookups
+        return super().get_queryset().select_related(
+            'street',
+            'deliver__user',
+            'deliver__street',
+            'approved_by'
+        )
+
+
+# =========================================================
+# REFACTORED MODELS
+# =========================================================
 
 class Deliver(models.Model):
     user = models.OneToOneField(
@@ -19,6 +50,8 @@ class Deliver(models.Model):
         blank=True
     )
     is_active = models.BooleanField(default=False)
+
+    objects = DeliverQuerySet.as_manager()
 
     def __str__(self):
         return f"Client: {self.user.username}"
@@ -45,11 +78,6 @@ class DeliverData(models.Model):
             )
         ]
     )
-
-    def save(self, *args, **kwargs):
-        # Forces model validation to run before saving to the database
-        self.full_clean()
-        super().save(*args, **kwargs)
     date_of_birth = models.DateField(
         verbose_name="Date of Birth"
     )
@@ -94,7 +122,6 @@ class DeliverData(models.Model):
         blank=True, 
         verbose_name="Approved At"
     )
-    # Updated to settings.AUTH_USER_MODEL to avoid the E301 error
     approved_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -104,6 +131,12 @@ class DeliverData(models.Model):
         verbose_name="Approved By",
     )
 
+    objects = DeliverDataQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        # Forces model validation to run before saving to the database
+        self.full_clean()
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        # Removed reliance on missing self.user reference in DeliverData
         return f"Client Data: {self.full_name} ({self.get_verification_status_display()})"
