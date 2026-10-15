@@ -19,11 +19,35 @@ class UserCreateSerializer(UserCreateSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
+
+
 class UserSerializer(UserSerializer):
+    is_vendor_active = serializers.SerializerMethodField()
+    is_client_active = serializers.SerializerMethodField()
+    is_deliver_active = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id','first_name', 'last_name', 'username']
+        fields = [
+            'id', 
+            'first_name', 
+            'last_name', 
+            'is_vendor_active', 
+            'is_client_active', 
+            'is_deliver_active'
+        ]
+
+    def get_is_vendor_active(self, obj):
+        vendor = getattr(obj, 'vendor_user', None)
+        return bool(vendor and vendor.is_active)
+
+    def get_is_client_active(self, obj):
+        client = getattr(obj, 'clients', None)
+        return bool(client and client.is_active)
+
+    def get_is_deliver_active(self, obj):
+        deliver = getattr(obj, 'delivery_profile', None)
+        return bool(deliver and deliver.is_active)
 
     
 class TokenCreateSerializer(TokenObtainPairSerializer):
