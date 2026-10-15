@@ -435,7 +435,8 @@ class ShopOrderUpdateSerializer(serializers.ModelSerializer):
         fields = ['payment_status']
 
     def validate_payment_status(self, value):
-        # Additional validation logic checking the behaviour of state transitions
         if self.instance.payment_status == Order.PaymentStatus.PAID:
             raise serializers.ValidationError("This specific order has already been marked as PAID.")
+        if self.instance.payment_status == Order.PaymentStatus.PENDING:
+            raise serializers.ValidationError("This specific order has not been marked as SENT.")
         return value
