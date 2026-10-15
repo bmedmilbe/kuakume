@@ -794,6 +794,17 @@ class TestCrossUserIsolation:
 
         assert response.status_code == 404
 
+    def test_non_active_client_can_not_order(self):
+            user_a = StoreUserFactory()
+            client = user_a.clients 
+            client.is_active=False
+            client.save()
+            
+            api = _auth_client(user_a)
+            response = api.get(reverse("shopping:order-list"))
+    
+            assert response.status_code == 403
+
     def test_user_a_cannot_read_user_b_cart(self):
         user_a = StoreUserFactory()
         user_b = StoreUserFactory(phone="+5768768868")
@@ -819,6 +830,7 @@ class TestCrossUserIsolation:
 
         assert response.status_code == 200
         assert len(response.data) == 0
+    
 
 
 

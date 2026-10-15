@@ -3,12 +3,12 @@ from django.contrib.auth import get_user_model
 from rest_framework import mixins, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from shopping.models import OrderPaymentProof
 
 from .models import Cart, CartItem, Client, Order, OrderItem
+from .permissions import IsClientActive
 from .serializers import (
     CartCreateSerializer,
     CartItemCreateOrUpdateSerializer,
@@ -104,7 +104,7 @@ class ClientViewSet(
         PATCH /clients/me/    -> update own Client (location, street)
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsClientActive]
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_serializer_class(self):
@@ -174,7 +174,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         POST/PUT/PATCH   -> OrderCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsClientActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -231,7 +231,7 @@ class OrderItemViewSet(viewsets.ModelViewSet):
         POST/PUT/PATCH   -> OrderItemCreateOrUpdateSerializer
     """
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsClientActive]
 
     def get_serializer_class(self):
         if self.request.method in permissions.SAFE_METHODS:
@@ -456,7 +456,7 @@ class OrderPaymentProofViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet
 ):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsClientActive]
     
     def get_queryset(self):
         order_pk = self.kwargs.get('order_pk')

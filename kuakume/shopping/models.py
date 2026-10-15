@@ -12,7 +12,7 @@ class Client(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='clients')
     location = models.PointField(srid=4326, null=True, blank=True)
     street = models.ForeignKey(Street, on_delete=models.CASCADE, related_name='clients', null=True, blank=True)
-
+    is_active = models.BooleanField(default=True)
     def __str__(self):
         return f"Client: {self.user.username}"
 

@@ -84,6 +84,7 @@ class ClientSerializer(serializers.ModelSerializer):
             "location",
             "street",
             "street_detail",
+            "is_active"
         ]
         read_only_fields = fields
 
@@ -109,8 +110,8 @@ class ClientUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = ["id", "location", "lon", "lat", "street"]
-        read_only_fields = ["id", "location"]
+        fields = ["id", "location", "lon", "lat", "street", "is_active"]
+        read_only_fields = ["id", "location", "is_active"]
 
     def validate(self, attrs):
         lon = attrs.get("lon")
