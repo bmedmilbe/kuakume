@@ -111,7 +111,7 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)  
     updated_at = models.DateTimeField(auto_now=True)      
 
-    location = models.PointField(srid=4326)
+    location = models.PointField(srid=4326, null=True, blank=True)
     street = models.ForeignKey(Street, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     shop = models.ForeignKey(ShopVendor, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     
