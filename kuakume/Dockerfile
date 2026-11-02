@@ -23,15 +23,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --upgrade pip && pip install pipenv
 
 # Copy Pipfile and Pipfile.lock first to leverage Docker's caching
-COPY Pipfile Pipfile.lock /app/
+COPY ./kuakume/Pipfile ./kuakume/Pipfile.lock /app/
 
 # Install dependencies globally in the container
 # --deploy ensures the build fails if Pipfile.lock is out of sync
 RUN pipenv install --system --deploy
 
 # Copy the rest of your Django project code into the container
-COPY . /app/
+COPY ./kuakume/. /app/
 
+RUN mkdir -p app/kuakume/staticfiles
+
+RUN python manage.py collectstatic --noinput
 # Expose Django's default port
 EXPOSE 8000
 

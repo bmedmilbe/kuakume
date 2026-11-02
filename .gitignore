@@ -97,4 +97,8 @@ media/
 staticfiles/
 
 kuakume/kuakume/settings/dev.py
+docker-compose.yml
+
+nginx/default.dev.conf
+nginx/Dockerfile.dev
 
